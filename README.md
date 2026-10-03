@@ -6,7 +6,6 @@
 Источник: https://www.kaggle.com/datasets/costalaether/yeast-transcriptomics
 
 ## Установка окружения
-1. Клонируйте репозиторий:
-   ```bash
-   git clone https://github.com/Komarovka/task-1.git
-   cd task-1
+```bash
+git clone https://github.com/Komarovka/task-1.git
+cd task-1
