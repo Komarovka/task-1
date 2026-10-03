@@ -16,5 +16,5 @@ def load_and_display_data(file_path: str, n_rows: int = 10):
     return df
 
 if __name__ == '__main__':
-    dataset_path = 'yeast-transcriptomics.csv'
+    dataset_path = 'SC_expression.csv'
     load_and_display_data(dataset_path)
