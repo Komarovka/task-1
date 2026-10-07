@@ -29,7 +29,6 @@ def load_data(url: str) -> pd.DataFrame:
         # Удаляем временный файл после чтения
         os.unlink(tmp_path)
 
-
 if __name__ == '__main__':
     # Ссылка на Яндекс.Диск с датасетом
     dataset_url = 'https://disk.yandex.ru/d/4bQoE0M7EvDYxg'
