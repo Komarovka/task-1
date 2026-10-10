@@ -8,7 +8,7 @@ SC_expression (транскриптомика дрожжей) в формат Pa
 import pandas as pd
 
 
-def read_csv(path: str) -> pd.DataFrame:
+def load_csv(path: str) -> pd.DataFrame:
     """Читает CSV-файл и возвращает DataFrame."""
     df = pd.read_csv(path)
     print(f"Загружено {df.shape[0]} строк и {df.shape[1]} колонок из {path}")
@@ -21,6 +21,7 @@ def cast_types(df: pd.DataFrame) -> pd.DataFrame:
 
     Правила приведения:
     - float64 -> float32 (числовые значения экспрессии генов)
+    - int64 -> int16/int32 (в зависимости от диапазона значений)
     - object с небольшим числом уникальных значений -> category
     - Бинарные числовые колонки (0/1) -> Int8 (nullable)
     """
@@ -33,14 +34,20 @@ def cast_types(df: pd.DataFrame) -> pd.DataFrame:
         if dtype == "float64":
             df[col] = df[col].astype("float32")
 
-        # Приводим int64 к int32, если значения помещаются
+        # Приводим int64 к оптимальному типу
         elif dtype == "int64":
-            min_val = df[col].min()
-            max_val = df[col].max()
-            if min_val >= -32768 and max_val <= 32767:
-                df[col] = df[col].astype("int16")
-            elif min_val >= -2147483648 and max_val <= 2147483647:
-                df[col] = df[col].astype("int32")
+            # Проверяем, что в колонке нет NaN (иначе min/max вернут NaN)
+            if df[col].notna().all():
+                min_val = df[col].min()
+                max_val = df[col].max()
+                # Бинарная колонка (только 0 и 1) -> Int8 (nullable)
+                unique_vals = set(df[col].unique())
+                if unique_vals <= {0, 1}:
+                    df[col] = df[col].astype("Int8")
+                elif min_val >= -32768 and max_val <= 32767:
+                    df[col] = df[col].astype("int16")
+                elif min_val >= -2147483648 and max_val <= 2147483647:
+                    df[col] = df[col].astype("int32")
 
         # Строковые колонки с малым числом уникальных значений -> category
         elif dtype == "object":
@@ -64,9 +71,15 @@ if __name__ == "__main__":
     INPUT_PATH = "data/SC_expression.csv"
     OUTPUT_PATH = "data/SC_expression.parquet"
 
-    df = read_csv(INPUT_PATH)
+    df = load_csv(INPUT_PATH)
+    size_before = df.memory_usage(deep=True).sum()
+
     df = cast_types(df)
+    size_after = df.memory_usage(deep=True).sum()
+
     save_parquet(df, OUTPUT_PATH)
 
     print("\n=== Информация о сохранённом файле ===")
-    print(f"Размер исходного DataFrame: {df.memory_usage(deep=True).sum() / 1024:.2f} KB")
+    print(f"Размер DataFrame до оптимизации: {size_before / 1024:.2f} KB")
+    print(f"Размер DataFrame после оптимизации: {size_after / 1024:.2f} KB")
+    print(f"Экономия памяти: {(1 - size_after / size_before) * 100:.1f}%")
