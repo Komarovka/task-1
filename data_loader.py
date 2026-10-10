@@ -1,53 +1,85 @@
+"""
+Скрипт для загрузки, приведения типов и сохранения датасета
+SC_expression (транскриптомика дрожжей) в формат Parquet.
+
+Домашнее задание №3 по курсу "ИИ инжиниринг".
+"""
+
 import pandas as pd
-import requests
-import tempfile
-import os
 
 
-def get_yandex_disk_download_url(public_key: str) -> str:
+def load_csv(path: str) -> pd.DataFrame:
+    """Читает CSV-файл и возвращает DataFrame."""
+    df = pd.read_csv(path)
+    print(f"Загружено {df.shape[0]} строк и {df.shape[1]} колонок из {path}")
+    return df
+
+
+def cast_types(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Получение ссылки на скачивание Яндекс.Диска.
+    Приводит типы данных DataFrame к оптимальным для экономии памяти.
+
+    Правила приведения:
+    - float64 -> float32 (числовые значения экспрессии генов)
+    - int64 -> int16/int32 (в зависимости от диапазона значений)
+    - object с небольшим числом уникальных значений -> category
+    - Бинарные числовые колонки (0/1) -> Int8 (nullable)
     """
-    api_url = "https://cloud-api.yandex.net/v1/disk/public/resources/download"
-    response = requests.get(api_url, params={"public_key": public_key}, timeout=30)
-    response.raise_for_status()
-    return response.json()["href"]
+    df = df.copy()
+
+    for col in df.columns:
+        dtype = df[col].dtype
+
+        # Приводим float64 к float32 — экономия памяти в 2 раза
+        if dtype == "float64":
+            df[col] = df[col].astype("float32")
+
+        # Приводим int64 к оптимальному типу
+        elif dtype == "int64":
+            # Проверяем, что в колонке нет NaN (иначе min/max вернут NaN)
+            if df[col].notna().all():
+                min_val = df[col].min()
+                max_val = df[col].max()
+                # Бинарная колонка (только 0 и 1) -> Int8 (nullable)
+                unique_vals = set(df[col].unique())
+                if unique_vals <= {0, 1}:
+                    df[col] = df[col].astype("Int8")
+                elif min_val >= -32768 and max_val <= 32767:
+                    df[col] = df[col].astype("int16")
+                elif min_val >= -2147483648 and max_val <= 2147483647:
+                    df[col] = df[col].astype("int32")
+
+        # Строковые колонки с малым числом уникальных значений -> category
+        elif dtype == "object":
+            nunique = df[col].nunique()
+            if nunique < len(df) * 0.5:  # меньше 50% уникальных
+                df[col] = df[col].astype("category")
+
+    print("Приведение типов завершено.")
+    print("Новые типы данных:")
+    print(df.dtypes.value_counts().to_string())
+    return df
 
 
-def load_data(url: str) -> pd.DataFrame:
-    """
-    Загрузка датасета по ссылке.
-
-    Args:
-        url (str): Публичная ссылка на датасет.
-
-    Returns:
-        pd.DataFrame: Загруженный датасет.
-    """
-    if "disk.yandex.ru" in url or "yadi.sk" in url:
-        download_url = get_yandex_disk_download_url(url)
-    else:
-        download_url = url
-
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp_file:
-        response = requests.get(download_url, timeout=(10, 300))
-        response.raise_for_status()
-        tmp_file.write(response.content)
-        tmp_path = tmp_file.name
-
-    try:
-        df = pd.read_csv(tmp_path)
-        return df
-    finally:
-        os.unlink(tmp_path)
+def save_parquet(df: pd.DataFrame, path: str) -> None:
+    """Сохраняет DataFrame в формат Parquet."""
+    df.to_parquet(path, engine="pyarrow", index=False)
+    print(f"DataFrame сохранён в {path}")
 
 
-if __name__ == '__main__':
-    dataset_url = 'https://disk.yandex.ru/d/4bQoE0M7EvDYxg'
+if __name__ == "__main__":
+    INPUT_PATH = "data/SC_expression.csv"
+    OUTPUT_PATH = "data/SC_expression.parquet"
 
-    print("Загрузка данных из Яндекс.Диск...")
-    df = load_data(dataset_url)
+    df = load_csv(INPUT_PATH)
+    size_before = df.memory_usage(deep=True).sum()
 
-    print(f"Успешно загружено строк: {len(df)}, колонок: {len(df.columns)}")
-    print("\nПервые 10 строк датасета:")
-    print(df.head(10))
+    df = cast_types(df)
+    size_after = df.memory_usage(deep=True).sum()
+
+    save_parquet(df, OUTPUT_PATH)
+
+    print("\n=== Информация о сохранённом файле ===")
+    print(f"Размер DataFrame до оптимизации: {size_before / 1024:.2f} KB")
+    print(f"Размер DataFrame после оптимизации: {size_after / 1024:.2f} KB")
+    print(f"Экономия памяти: {(1 - size_after / size_before) * 100:.1f}%")
