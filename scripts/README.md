@@ -41,8 +41,8 @@
 ### Примеры запросов
 
 API запросы для получения данных:
-- `organism_id:4952 AND (polyunsaturated fatty acid OR desaturase OR elongase OR PUFA OR omega-3 OR omega-6)`
-- `organism_id:4932 AND (polyunsaturated fatty acid OR desaturase OR elongase OR PUFA)`
+- `organism_id:4952 AND (polyunsaturated fatty acid OR desaturase OR elongase OR PUFA OR omega-3 OR omega-6 OR "fatty acid biosynthesis")`
+- `organism_id:4932 AND (polyunsaturated fatty acid OR desaturase OR elongase OR PUFA OR "fatty acid biosynthesis")`
 
 ## Как использовать
 
