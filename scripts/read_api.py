@@ -1,9 +1,13 @@
 """
-Скрипт для получения данных о белках дрожжей через UniProt API.
+Скрипт для получения данных о ферментах биосинтеза ПНЖК у дрожжей
+через UniProt REST API.
 
-Собирает информацию о белках, участвующих в метаболизме липидов
-у олеогенных дрожжей (Yarrowia lipolytica) и пекарских дрожжей
-(Saccharomyces cerevisiae).
+Собирает информацию о белках, участвующих в синтезе полиненасыщенных
+жирных кислот (ПНЖК): десатуразы, элонгазы, ацил-КоА-синтетазы и др.
+
+Виды дрожжей:
+- Yarrowia lipolytica (олеогенные дрожжи, промышленный производитель ПНЖК)
+- Saccharomyces cerevisiae (модельный организм)
 
 Источники:
 - UniProt REST API v2: https://rest.uniprot.org/
@@ -20,7 +24,7 @@ import time
 from typing import List, Dict
 
 
-def fetch_uniprot_data(query: str, size: int = 50) -> List[Dict]:
+def fetch_uniprot_data(query: str, size: int = 100) -> List[Dict]:
     """
     Запрашивает данные из UniProt REST API v2.
 
@@ -28,8 +32,9 @@ def fetch_uniprot_data(query: str, size: int = 50) -> List[Dict]:
     ----------
     query : str
         Поисковый запрос в формате UniProt query language.
+        Используются organism_id и ключевые слова по ПНЖК.
     size : int, optional
-        Максимальное количество записей, по умолчанию 50.
+        Максимальное количество записей, по умолчанию 100.
 
     Returns
     -------
@@ -38,12 +43,12 @@ def fetch_uniprot_data(query: str, size: int = 50) -> List[Dict]:
     """
     base_url = "https://rest.uniprot.org/uniprotkb/search"
 
-    # Минимальный набор полей, которые точно работают в UniProt API v2
+    # Поля, которые точно поддерживаются UniProt API v2
     params = {
         "query": query,
         "format": "json",
         "size": size,
-        "fields": "accession,id,gene_names,protein_name,organism_name,organism_id,length"
+        "fields": "accession,id,gene_names,protein_name,organism_name,organism_id,length,comment_function"
     }
 
     headers = {
@@ -58,13 +63,13 @@ def fetch_uniprot_data(query: str, size: int = 50) -> List[Dict]:
     try:
         with httpx.Client(timeout=30.0, follow_redirects=True) as client:
             response = client.get(base_url, params=params, headers=headers)
-            
+
             if response.status_code == 400:
                 print(f"Ошибка 400: Bad Request")
                 print(f"  URL: {response.url}")
-                print(f"  Ответ: {response.text[:500]}")
+                print(f"  Ответ: {response.text[:300]}")
                 return []
-            
+
             response.raise_for_status()
 
             data = response.json()
@@ -87,16 +92,29 @@ def fetch_uniprot_data(query: str, size: int = 50) -> List[Dict]:
 def parse_uniprot_results(results: List[Dict]) -> pd.DataFrame:
     """
     Преобразует результаты UniProt API в DataFrame.
+
+    Parameters
+    ----------
+    results : List[Dict]
+        Список словарей с данными от UniProt.
+
+    Returns
+    -------
+    pd.DataFrame
+        Датафрейм с извлечёнными данными.
     """
     parsed_data = []
 
     for entry in results:
+        # Основные идентификаторы
         accession = entry.get("primaryAccession", "N/A")
         protein_id = entry.get("uniProtkbId", "N/A")
 
+        # Организм
         organism_name = entry.get("organism", {}).get("scientificName", "N/A")
         organism_tax_id = entry.get("organism", {}).get("taxonId", "N/A")
 
+        # Гены
         genes = entry.get("genes", [])
         gene_names_list = []
 
@@ -114,6 +132,7 @@ def parse_uniprot_results(results: List[Dict]) -> pd.DataFrame:
             ";".join(gene_names_list[1:]) if len(gene_names_list) > 1 else "N/A"
         )
 
+        # Название белка
         protein_info = entry.get("protein", {})
         rec_name = protein_info.get("recommendedName", {})
         protein_full_name = "N/A"
@@ -125,6 +144,7 @@ def parse_uniprot_results(results: List[Dict]) -> pd.DataFrame:
             elif isinstance(fn, list) and fn:
                 protein_full_name = fn[0].get("value", "N/A")
 
+        # Функция (комментарий FUNCTION)
         comments = entry.get("comments", [])
         function_text = "N/A"
 
@@ -135,9 +155,11 @@ def parse_uniprot_results(results: List[Dict]) -> pd.DataFrame:
                     function_text = " ".join([t.get("value", "") for t in texts])
                 break
 
-        if len(function_text) > 150:
-            function_text = function_text[:150] + "..."
+        # Ограничим длину функции, чтобы таблица читалась
+        if len(function_text) > 200:
+            function_text = function_text[:200] + "..."
 
+        # Длина последовательности
         sequence = entry.get("sequence", {})
         length = sequence.get("length", "N/A")
 
@@ -161,6 +183,9 @@ def parse_uniprot_results(results: List[Dict]) -> pd.DataFrame:
 def cast_types(df: pd.DataFrame) -> pd.DataFrame:
     """
     Приводит типы данных DataFrame для оптимизации памяти.
+
+    - sequence_length: Int16 (nullable integer)
+    - taxon_id: Int32 (nullable integer)
     """
     df = df.copy()
 
@@ -183,6 +208,13 @@ def cast_types(df: pd.DataFrame) -> pd.DataFrame:
 def save_dataset(df: pd.DataFrame, output_path: str) -> None:
     """
     Сохраняет DataFrame в CSV формат.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame для сохранения.
+    output_path : str
+        Путь к выходному файлу (без расширения).
     """
     csv_path = output_path + ".csv"
     df.to_csv(csv_path, index=False, encoding="utf-8-sig")
@@ -200,44 +232,53 @@ def save_dataset(df: pd.DataFrame, output_path: str) -> None:
 
 def main():
     """
-    Основная функция: запрашивает данные по двум видам дрожжей.
+    Основная функция: запрашивает данные по ферментам биосинтеза ПНЖК
+    у двух видов дрожжей и сохраняет результат в CSV.
     """
     print("=" * 70)
-    print("UniProt API: Белки дрожжей, участвующие в метаболизме липидов")
+    print("UniProt API: Ферменты биосинтеза ПНЖК у дрожжей")
+    print("=" * 70)
+    print()
+    print("Полиненасыщенные жирные кислоты (ПНЖК):")
+    print("  - Омега-3: EPA (эйкозапентаеновая), DHA (докозагексаеновая)")
+    print("  - Омега-6: LA (линолевая), ARA (арахидоновая)")
+    print()
+    print("Искомые ферменты: десатуразы, элонгазы, ацил-КоА-синтетазы")
     print("=" * 70)
 
-    # Используем таксономические ID
-    # 4952 — Yarrowia lipolytica
-    # 4932 — Saccharomyces cerevisiae
+    # Используем таксономические ID и ключевые слова по ПНЖК
+    # 4952 — Yarrowia lipolytica (олеогенные дрожжи, промышленный производитель ПНЖК)
+    # 4932 — Saccharomyces cerevisiae (пекарские дрожжи, модельный организм)
     queries = {
         "Yarrowia lipolytica (oleogenic yeast)":
-            "organism_id:4952 AND lipid",
+            'organism_id:4952 AND (polyunsaturated fatty acid OR desaturase OR elongase OR PUFA OR omega-3 OR omega-6 OR "fatty acid biosynthesis")',
         "Saccharomyces cerevisiae (baker's yeast)":
-            "organism_id:4932 AND lipid",
+            'organism_id:4932 AND (polyunsaturated fatty acid OR desaturase OR elongase OR PUFA OR "fatty acid biosynthesis")',
     }
 
     all_dataframes = []
 
     for description, query in queries.items():
-        print("")
+        print()
         print("=" * 70)
         print(description)
         print("=" * 70)
 
-        results = fetch_uniprot_data(query, size=50)
+        results = fetch_uniprot_data(query, size=100)
 
         if results:
             df = parse_uniprot_results(results)
             df["yeast_type"] = description.split(" (")[0]
 
-            print("")
+            print()
             print("Первые 5 записей:")
             preview_cols = ["gene_primary", "protein_name", "sequence_length"]
             print(df[preview_cols].head().to_string())
 
             all_dataframes.append(df)
 
-            print("")
+            # Пауза между запросами — этичное использование API
+            print()
             print("Пауза 2 секунды перед следующим запросом...")
             time.sleep(2)
         else:
@@ -246,7 +287,7 @@ def main():
     if all_dataframes:
         final_df = pd.concat(all_dataframes, ignore_index=True)
 
-        print("")
+        print()
         print("=" * 70)
         print("ИТОГО:")
         print("=" * 70)
@@ -257,22 +298,7 @@ def main():
         print(f"Уникальных генов: {unique_genes}")
         print(f"Видов дрожжей: {unique_types}")
 
+        # Приведение типов
         final_df = cast_types(final_df)
 
-        save_dataset(final_df, "scripts/yeast_lipid_proteins")
-
-        size_kb = final_df.memory_usage(deep=True).sum() / 1024
-        print(f"\nРазмер DataFrame в памяти: {size_kb:.2f} KB")
-
-        print("")
-        print("=" * 70)
-        print("ПЕРВЫЕ 20 СТРОК (для скриншота в README):")
-        print("=" * 70)
-        print(final_df.head(20).to_string())
-    else:
-        print("")
-        print("Не удалось получить данные ни по одному виду дрожжей")
-
-
-if __name__ == "__main__":
-    main()
+        # Сохранение
