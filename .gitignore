@@ -1,3 +1,10 @@
+```gitignore
+# Окружения и служебные файлы Python
+__pycache__/
+.venv/
+.env
+.ipynb_checkpoints/
+
 # Игнорируем данные из скриптов ДЗ №4
 scripts/*.csv
 scripts/*.parquet
