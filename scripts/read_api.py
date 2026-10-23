@@ -310,10 +310,10 @@ def main():
 
         time.sleep(1)
 
-   if not all_dataframes:
-       print("\n❌ Не удалось получить данные ни по одному виду дрожжей")
-       print("Проверьте запросы или подключение к интернету")
-       sys.exit(1)
+    if not all_dataframes:
+        print("\n❌ Не удалось получить данные ни по одному виду дрожжей")
+        print("Проверьте запросы или подключение к интернету")
+        sys.exit(1)
 
     final_df = pd.concat(all_dataframes, ignore_index=True)
 
