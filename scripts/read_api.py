@@ -251,7 +251,7 @@ def collect_yeast_data(organism_id: int, organism_name: str, query: str) -> pd.D
     results = fetch_uniprot_data(query, size=100)
 
     if not results:
-        print(f"  По запросу не получено ни одной записи")
+        print("  По запросу не получено ни одной записи")
         return pd.DataFrame()
 
     seen_accessions: set = set()
@@ -310,10 +310,10 @@ def main():
 
         time.sleep(1)
 
-    if not all_dataframes:
-        print("\n❌ Не удалось получить данные ни по одному виду дрожжей")
-        print("Проверьте запросы или подключение к интернету")
-        return
+   if not all_dataframes:
+       print("\n❌ Не удалось получить данные ни по одному виду дрожжей")
+       print("Проверьте запросы или подключение к интернету")
+       sys.exit(1)
 
     final_df = pd.concat(all_dataframes, ignore_index=True)
 
