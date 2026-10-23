@@ -251,7 +251,7 @@ def collect_yeast_data(organism_id: int, organism_name: str, query: str) -> pd.D
     results = fetch_uniprot_data(query, size=100)
 
     if not results:
-        print(f"  ️  По запросу не получено ни одной записи")
+        print(f"  По запросу не получено ни одной записи")
         return pd.DataFrame()
 
     seen_accessions: set = set()
@@ -302,18 +302,18 @@ def main():
             if not df.empty:
                 all_dataframes.append(df)
             else:
-                print(f"  ⚠️  Пропускаем {organism_name}: нет данных")
-                sys.exit(f"Не удалось получить данные по {organism_name}")
+                print(f"  ⚠️  Пропускаем {organism_name}: нет данных по запросу")
         except RuntimeError as e:
-            print(f"\n❌ Ошибка при обработке {organism_name}:")
+            print(f"\n Ошибка при обработке {organism_name}:")
             print(f"   {e}")
-            sys.exit(1)
+            print(f"  ⚠️  Пропускаем {organism_name} из-за ошибки API")
 
         time.sleep(1)
 
     if not all_dataframes:
         print("\n❌ Не удалось получить данные ни по одному виду дрожжей")
-        sys.exit(1)
+        print("Проверьте запросы или подключение к интернету")
+        return
 
     final_df = pd.concat(all_dataframes, ignore_index=True)
 
