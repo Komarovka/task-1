@@ -14,7 +14,7 @@
 - Документация: https://www.uniprot.org/help/api
 
 Автор: Komarovka
-Дата: 2026-10-17
+Дата: 2026-10-23
 Домашнее задание №4 (вариант 1: Public API)
 """
 
@@ -33,16 +33,16 @@ BASE_URL = "https://rest.uniprot.org/uniprotkb/search"
 # Поля, которые точно поддерживаются UniProt API v2
 REQUEST_FIELDS = "accession,id,gene_names,protein_name,organism_name,organism_id,length"
 
-# Запросы: GO-термины + ключевые слова (kw: НЕ работает в API v2)
-# go:0019369 - fatty acid biosynthetic process
-# go:0006633 - fatty acid biosynthetic process (альтернативный ID)
-# go:0006631 - fatty acid metabolic process
-# go:0016214 - acyl-CoA desaturase activity
+# GO-термины (проверены на QuickGO):
+# GO:0006633 — fatty acid biosynthetic process
+# GO:0006631 — fatty acid metabolic process
+# GO:0004768 — acyl-CoA desaturase activity
+# Ключевые слова: desaturase, elongase
 YEAST_QUERIES: List[Tuple[int, str, str]] = [
     (4952, "Yarrowia lipolytica (oleogenic yeast)",
-     "organism_id:4952 AND (go:0019369 OR go:0006633 OR go:0016214 OR desaturase OR elongase OR fatty_acid)"),
+     "organism_id:4952 AND (go:0006633 OR go:0006631 OR go:0004768 OR desaturase OR elongase)"),
     (4932, "Saccharomyces cerevisiae (baker's yeast)",
-     "organism_id:4932 AND (go:0019369 OR go:0006633 OR go:0016214 OR desaturase OR elongase OR fatty_acid)"),
+     "organism_id:4932 AND (go:0006633 OR go:0006631 OR go:0004768 OR desaturase OR elongase)"),
 ]
 
 HEADERS = {
@@ -53,6 +53,23 @@ HEADERS = {
 def fetch_uniprot_data(query: str, size: int = 100) -> List[Dict]:
     """
     Запрашивает данные из UniProt REST API v2 с пагинацией.
+
+    Parameters
+    ----------
+    query : str
+        Поисковый запрос в формате UniProt query language.
+    size : int, optional
+        Размер страницы, по умолчанию 100.
+
+    Returns
+    -------
+    List[Dict]
+        Список словарей с данными о белках.
+
+    Raises
+    ------
+    RuntimeError
+        Если API вернул ошибку или не удалось получить данные.
     """
     params = {
         "query": query,
@@ -94,8 +111,7 @@ def fetch_uniprot_data(query: str, size: int = 100) -> List[Dict]:
         ) from e
     except httpx.HTTPError as e:
         raise RuntimeError(f"Ошибка HTTP при запросе: {query}\n{e}") from e
-    except Exception as e:
-        raise RuntimeError(f"Неизвестная ошибка при запросе: {query}\n{e}") from e
+    # Не ловим Exception — пусть системные исключения падают как есть
 
     return all_results
 
@@ -103,6 +119,11 @@ def fetch_uniprot_data(query: str, size: int = 100) -> List[Dict]:
 def extract_gene_info(entry: Dict) -> Tuple[str, str]:
     """
     Извлекает основное название гена и синонимы из записи UniProt.
+
+    Returns
+    -------
+    Tuple[str, str]
+        (gene_primary, gene_synonyms)
     """
     genes = entry.get("genes", [])
     if not genes:
@@ -268,10 +289,10 @@ def main():
     print("  - Омега-6: LA (линолевая), ARA (арахидоновая)")
     print()
     print("Используемые запросы:")
-    print("  - GO:0019369 (fatty acid biosynthetic process)")
     print("  - GO:0006633 (fatty acid biosynthetic process)")
-    print("  - GO:0016214 (acyl-CoA desaturase activity)")
-    print("  - desaturase, elongase, fatty_acid (ключевые слова)")
+    print("  - GO:0006631 (fatty acid metabolic process)")
+    print("  - GO:0004768 (acyl-CoA desaturase activity)")
+    print("  - desaturase, elongase (ключевые слова)")
     print("=" * 70)
 
     all_dataframes = []
@@ -283,10 +304,10 @@ def main():
                 all_dataframes.append(df)
             else:
                 print(f"  ⚠️  Пропускаем {organism_name}: нет данных")
+                sys.exit(f"Не удалось получить данные по {organism_name}")
         except RuntimeError as e:
             print(f"\n❌ Ошибка при обработке {organism_name}:")
             print(f"   {e}")
-            print("\nПрерываем выполнение — датасет будет неполным.")
             sys.exit(1)
 
         time.sleep(1)
