@@ -1,4 +1,3 @@
-```gitignore
 # Окружения и служебные файлы Python
 __pycache__/
 .venv/
