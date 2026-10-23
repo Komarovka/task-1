@@ -111,7 +111,6 @@ def fetch_uniprot_data(query: str, size: int = 100) -> List[Dict]:
         ) from e
     except httpx.HTTPError as e:
         raise RuntimeError(f"Ошибка HTTP при запросе: {query}\n{e}") from e
-    # Не ловим Exception — пусть системные исключения падают как есть
 
     return all_results
 
@@ -252,7 +251,7 @@ def collect_yeast_data(organism_id: int, organism_name: str, query: str) -> pd.D
     results = fetch_uniprot_data(query, size=100)
 
     if not results:
-        print(f"  ⚠️  По запросу не получено ни одной записи")
+        print(f"  ️  По запросу не получено ни одной записи")
         return pd.DataFrame()
 
     seen_accessions: set = set()
