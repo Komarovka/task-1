@@ -47,3 +47,46 @@ API запросы для получения данных:
 
 ```bash
 uv run python scripts/read_api.py
+```
+
+## 📊 Визуализация данных (ДЗ №6)
+
+Для визуализации использована библиотека **Plotly** с настройками для отображения в GitHub.
+
+### Настройка рендеринга
+
+```python
+import plotly.express as px
+import plotly.io as pio
+
+pio.renderers.default = "png"
+pio.templates.default = "plotly_white"
+
+### Комплексная визуализация (сетка 2x2)
+
+![Анализ ферментов ПНЖК](data/pufa_enzymes_grid.png)
+
+**Описание графиков:**
+1. **Гистограмма** — распределение длины белковых последовательностей по видам
+2. **Bar chart** — количество ферментов по видам дрожжей (5 у Y. lipolytica, 2 у S. cerevisiae)
+3. **Bar chart** — длина последовательностей по конкретным генам (MFE2, PAH1, FAS2, BIO1)
+4. **Scatter plot** — связь таксономического ID и длины белка
+
+### Дополнительные визуализации
+
+#### Box plot — статистическое распределение
+![Box plot](data/boxplot_length.png)
+
+#### Pie chart — распределение по видам
+![Pie chart](data/pie_distribution.png)
+
+#### Scatter — многомерный анализ
+![Scatter](data/scatter_multidim.png)
+
+### Единый стиль
+
+Все графики используют:
+- Кастомную цветовую палитру (красный для Y. lipolytica, бирюзовый для S. cerevisiae)
+- Шрифт Arial, размер 12-16
+- Шаблон `plotly_white`
+- Интерактивные hover-подсказки
