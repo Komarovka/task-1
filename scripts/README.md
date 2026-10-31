@@ -47,6 +47,7 @@ API запросы для получения данных:
 
 ```bash
 uv run python scripts/read_api.py
+```
 
 ## 📊 Визуализация данных (ДЗ №6)
 
