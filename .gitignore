@@ -10,3 +10,9 @@ scripts/*.parquet
 scripts/*.json
 scripts/*.png
 scripts/*.jpg
+
+.env
+creds.db
+*.db
+data/*.csv
+!data/requirements*.csv
