@@ -1,7 +1,9 @@
 import os
 import sys
+import re
 import pandas as pd
 from sqlalchemy import create_engine, text
+from sqlalchemy.engine import URL
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -23,6 +25,10 @@ def main():
             print(f"Missing env var: {var}")
             sys.exit(1)
 
+    if not re.fullmatch(r"[a-z_][a-z0-9_]*", TABLE_NAME):
+        print(f"Invalid table name: {TABLE_NAME}")
+        sys.exit(1)
+
     if not os.path.exists(DATA_PATH):
         print(f"File not found: {DATA_PATH}")
         sys.exit(1)
@@ -42,7 +48,14 @@ def main():
     df.columns = [c.lower().replace(" ", "_").replace("-", "_") for c in df.columns]
     df = df.where(pd.notnull(df), None)
 
-    url = f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    url = URL.create(
+        "postgresql+psycopg2",
+        username=DB_USER,
+        password=DB_PASSWORD,
+        host=DB_HOST,
+        port=int(DB_PORT),
+        database=DB_NAME,
+    )
     engine = create_engine(url)
 
     with engine.connect() as conn:
@@ -50,21 +63,16 @@ def main():
     print("Connected to DB")
 
     with engine.begin() as conn:
-        exists = conn.execute(text(
-            f"SELECT EXISTS (SELECT 1 FROM information_schema.tables "
-            f"WHERE table_name = '{TABLE_NAME}')"
-        )).scalar()
+        df.to_sql(TABLE_NAME, conn, index=False, if_exists="replace")
 
-        if exists:
-            conn.execute(text(f"DROP TABLE IF EXISTS {TABLE_NAME}"))
-
-        df.head(0).to_sql(TABLE_NAME, conn, index=False, if_exists="replace")
-        df.to_sql(TABLE_NAME, conn, index=False, if_exists="append")
-
-        count = conn.execute(text(f"SELECT COUNT(*) FROM {TABLE_NAME}")).scalar()
+        count = conn.execute(
+            text(f"SELECT COUNT(*) FROM {TABLE_NAME}")
+        ).scalar()
         print(f"Inserted {count} rows into {TABLE_NAME}")
 
-        sample = conn.execute(text(f"SELECT * FROM {TABLE_NAME} LIMIT 3")).fetchall()
+        sample = conn.execute(
+            text(f"SELECT * FROM {TABLE_NAME} LIMIT 3")
+        ).fetchall()
         for row in sample:
             print(f"  {row}")
 
