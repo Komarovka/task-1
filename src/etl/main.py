@@ -23,7 +23,7 @@ def main():
     df = transform(df)
     print(f"transformed: {len(df)} rows, {len(df.columns)} cols")
 
-    errors = validate(df)
+    errors = validate(df, min_rows=args.rows)
     if errors:
         for e in errors:
             print("error:", e)
