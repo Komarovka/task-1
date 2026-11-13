@@ -9,8 +9,6 @@ from sqlalchemy.engine import URL
 
 def build_engine():
     load_dotenv()
-    
-    # Проверка обязательных переменных
     for var in ["DB_USER", "DB_PASSWORD", "DB_HOST"]:
         if not os.getenv(var):
             raise ValueError(f"Missing environment variable: {var}")

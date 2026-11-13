@@ -11,4 +11,4 @@ def extract(path: str | Path) -> pd.DataFrame:
         return pd.read_parquet(path)
     if path.suffix == ".csv":
         return pd.read_csv(path)
-    raise ValueError(f"unsupported format: {path.suffix} (ожидались .parquet или .csv)")
+    raise ValueError(f"unsupported format: {path.suffix} (expected .parquet or .csv)")
