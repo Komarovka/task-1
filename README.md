@@ -16,3 +16,21 @@
    ```bash
    git clone https://github.com/Komarovka/task-1.git
    cd task-1
+
+   ## Пакет etl
+
+Этап ETL собран в пакет `src/etl`:
+
+| Модуль | Назначение |
+|---|---|
+| extract.py | чтение parquet/csv |
+| transform.py | snake_case колонок, дедупликация, очистка |
+| validate.py | проверки перед записью |
+| load.py | запись в PostgreSQL (homeworks) |
+| main.py | CLI-точка входа |
+
+### Запуск
+
+```bash
+$env:PYTHONPATH = "src"
+uv run python -m etl.main --input data/SC_expression.parquet --table komarovka --rows 100

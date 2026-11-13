@@ -1,0 +1,5 @@
+-r requirements.txt
+jupyter
+plotly
+kaleido
+requests
