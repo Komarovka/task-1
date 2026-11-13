@@ -29,6 +29,5 @@ def load(df: pd.DataFrame, table: str) -> int:
         raise ValueError(f"bad table name: {table}")
     engine = build_engine()
     with engine.begin() as conn:
-        # Внимание: if_exists="replace" удаляет старую таблицу и создаёт новую
         df.to_sql(table, conn, index=False, if_exists="replace")
         return conn.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar()
