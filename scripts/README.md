@@ -90,3 +90,10 @@ pio.templates.default = "plotly_white"
 - Шрифт Arial, размер 12-16
 - Шаблон `plotly_white`
 - Интерактивные hover-подсказки
+
+## ДЗ №7: Запись данных в удалённую БД
+
+Скрипт `scripts/write_to_db.py` читает 100 строк из `data/SC_expression.parquet` и записывает их в таблицу `komarovka` БД `homeworks` (PostgreSQL).
+
+```bash
+uv run python scripts/write_to_db.py
